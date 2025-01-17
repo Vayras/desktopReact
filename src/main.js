@@ -1,48 +1,32 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('node:path');
-const { ipcMain } = require('electron');
+const { app, ipcMain } = require('electron');
 const { exec } = require('child_process');
+const { menubar } = require('menubar');
+const path = require('node:path');
 
-// Handle creating/removing shortcuts on Windows when installing/uninstalling.
-if (require('electron-squirrel-startup')) {
-  app.quit();
-}
-
-const createWindow = () => {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+// Configure the menubar app
+const mb = menubar({
+  index: MAIN_WINDOW_WEBPACK_ENTRY, // Your app's entry point
+  icon: "/Users/tusharvyas/Documents/GitHub/desktopReact/assets/iconDefault.png", // Path to your app icon
+  preloadWindow: true, // Preload window for faster performance
+  browserWindow: {
+    width: 200,
+    height: 200,
     webPreferences: {
-      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
-      contextIsolation: true, // Isolate context
-      enableRemoteModule: false, // Disable remote module for security
-      nodeIntegration: false, // Disable node integration (important for security)
+      preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY, // Path to your preload script
+      contextIsolation: true, // Isolate the context for security
+      enableRemoteModule: false, // Disable the remote module
+      nodeIntegration: false, // Disable node integration
     },
-    autoHideMenuBar: true,
-  });
-
-  // and load the index.html of the app.
-  mainWindow.loadURL(MAIN_WINDOW_WEBPACK_ENTRY);
-  mainWindow.webContents.openDevTools(); 
-
-};
-
-// This method will be called when Electron has finished
-// initialization and is ready to create browser windows.
-// Some APIs can only be used after this event occurs.
-app.whenReady().then(() => {
-  createWindow();
-
-  // On OS X it's common to re-create a window in the app when the
-  // dock icon is clicked and there are no other windows open.
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
-    }
-  });
+    autoHideMenuBar: true, // Hide the menu bar for a cleaner look
+  },
 });
 
+// Log when the menubar app is ready
+mb.on('ready', () => {
+  console.log('Menubar app is ready');
+});
+
+// Handle AppleScript execution
 ipcMain.on('run-apple-script', () => {
   const appleScript = `
     tell application "System Settings" to quit
@@ -64,25 +48,26 @@ ipcMain.on('run-apple-script', () => {
 
   exec(`osascript -e '${appleScript.replace(/'/g, "'\\''")}'`, (error, stdout, stderr) => {
     if (error) {
-      console.error(`exec error: ${error}`);
+      console.error(`Execution error: ${error}`);
       return;
     }
     if (stderr) {
-      console.error(`stderr: ${stderr}`);
+      console.error(`Script error: ${stderr}`);
       return;
     }
-    console.log(`stdout: ${stdout}`);
+    console.log(`AppleScript output: ${stdout}`);
   });
 });
 
-// Quit when all windows are closed, except on macOS. There, it's common
-// for applications and their menu bar to stay active until the user quits
-// explicitly with Cmd + Q.
+// Handle application lifecycle events
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and import them here.
+app.on('activate', () => {
+  if (mb.window === null) {
+    mb.showWindow();
+  }
+});
